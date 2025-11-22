@@ -1,0 +1,47 @@
+name: Non-blocking security scans and Docker build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  scan-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Fluid Attacks SAST (non-blocking)
+        run: |
+          set +e
+          docker run --rm -v "${{ github.workspace }}:/app" fluidattacks/sast:latest \
+            sast --strict scan /app/sast-scan.yml
+          CODE=$?
+          echo "SAST_EXIT_CODE=$CODE"
+          echo "SAST scan finished (non-blocking)."
+          set -e
+
+      - name: Run Fluid Attacks SCA (non-blocking)
+        run: |
+          set +e
+          docker run --rm -v "${{ github.workspace }}:/app" fluidattacks/sca:latest \
+            sca --strict scan /app/sac-config.yml
+          CODE=$?
+          echo "SCA_EXIT_CODE=$CODE"
+          echo "SCA scan finished (non-blocking)."
+          set -e
+
+      - name: Upload SAST CSV report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-report
+          path: sast-report.csv
+          if-no-files-found: ignore
+
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image regardless of scan results..."
+          docker build -t wackopicko-nonblocking .
