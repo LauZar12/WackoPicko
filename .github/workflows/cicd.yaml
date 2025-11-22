@@ -1,0 +1,107 @@
+name: Security scans and Docker build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+
+  semgrep:
+    runs-on: ubuntu-latest
+
+    outputs:
+      exit_code: ${{ steps.semgrep_scan.outputs.exit_code }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        id: semgrep_scan
+        run: |
+          set +e
+          docker run --rm -v "${{ github.workspace }}:/src" semgrep/semgrep \
+            semgrep scan --config=p/default /src \
+            --json --output=/src/semgrep-results.json
+          CODE=$?
+          echo "exit_code=$CODE" >> $GITHUB_OUTPUT
+          set -e
+
+  sast:
+    runs-on: ubuntu-latest
+
+    outputs:
+      exit_code: ${{ steps.sast_scan.outputs.exit_code }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Fluid Attacks SAST
+        id: sast_scan
+        run: |
+          set +e
+          docker run --rm -v "${{ github.workspace }}:/app" fluidattacks/sast:latest \
+            sast --strict scan /app/sast-scan.yaml
+          CODE=$?
+          echo "exit_code=$CODE" >> $GITHUB_OUTPUT
+          set -e
+
+      - name: Upload SAST CSV report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-report
+          path: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/sast-report.csv
+          if-no-files-found: ignore
+
+  sca:
+    runs-on: ubuntu-latest
+
+    outputs:
+      exit_code: ${{ steps.sca_scan.outputs.exit_code }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Fluid Attacks SCA
+        id: sca_scan
+        run: |
+          set +e
+          docker run --rm -v "${{ github.workspace }}:/app" fluidattacks/sca:latest \
+            sca --strict scan /app/sac-config.yaml
+          CODE=$?
+          echo "exit_code=$CODE" >> $GITHUB_OUTPUT
+          set -e
+
+  evaluate-and-build:
+    runs-on: ubuntu-latest
+    needs: [semgrep, sast, sca]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Evaluate scan results
+        env:
+          SEMGREP_EXIT_CODE: ${{ needs.semgrep.outputs.exit_code }}
+          SAST_EXIT_CODE:    ${{ needs.sast.outputs.exit_code }}
+          SCA_EXIT_CODE:     ${{ needs.sca.outputs.exit_code }}
+        run: |
+          echo "Semgrep exit code: $SEMGREP_EXIT_CODE"
+          echo "SAST exit code:    $SAST_EXIT_CODE"
+          echo "SCA exit code:     $SCA_EXIT_CODE"
+
+          if [ "$SEMGREP_EXIT_CODE" != "0" ] || [ "$SAST_EXIT_CODE" != "0" ] || [ "$SCA_EXIT_CODE" != "0" ]; then
+            echo "❌ Vulnerabilities found. Docker image creation denied."
+            exit 1
+          else
+            echo "✅ No vulnerabilities found by Semgrep, SAST or SCA. Proceeding with Docker image build."
+          fi
+
+      - name: Build Docker image
+        if: success()
+        run: |
+          docker build -t wackopicko-secure .

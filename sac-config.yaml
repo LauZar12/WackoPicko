@@ -1,0 +1,11 @@
+namespace: wackopicko-sca
+working_dir: /app
+language: EN
+
+sca:
+  include:
+    - .
+  exclude:
+    - glob(**/upload/**)
+    - glob(**/node_modules/**)
+    - glob(**/vendor/**)
