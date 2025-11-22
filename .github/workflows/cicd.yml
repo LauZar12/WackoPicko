@@ -1,4 +1,3 @@
-# Main yaml
 name: Security scans and Docker build
 
 on:
@@ -44,7 +43,7 @@ jobs:
         run: |
           set +e
           docker run --rm -v "${{ github.workspace }}:/app" fluidattacks/sast:latest \
-            sast --strict scan /app/sast-scan.yaml
+            sast --strict scan /app/sast-scan.yml
           CODE=$?
           echo "exit_code=$CODE" >> $GITHUB_OUTPUT
           set -e
@@ -54,7 +53,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sast-report
-          path: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/sast-report.csv
+          path: sast-report.csv
           if-no-files-found: ignore
 
   sca:
@@ -72,7 +71,7 @@ jobs:
         run: |
           set +e
           docker run --rm -v "${{ github.workspace }}:/app" fluidattacks/sca:latest \
-            sca --strict scan /app/sac-config.yaml
+            sca --strict scan /app/sac-config.yml
           CODE=$?
           echo "exit_code=$CODE" >> $GITHUB_OUTPUT
           set -e
@@ -96,7 +95,7 @@ jobs:
           echo "SCA exit code:     $SCA_EXIT_CODE"
 
           if [ "$SEMGREP_EXIT_CODE" != "0" ] || [ "$SAST_EXIT_CODE" != "0" ] || [ "$SCA_EXIT_CODE" != "0" ]; then
-            echo "❌ Vulnerabilities found. Docker image creation denied."
+            echo "❌ Vulnerabilities foud. Docker image build denied."
             exit 1
           else
             echo "✅ No vulnerabilities found by Semgrep, SAST or SCA. Proceeding with Docker image build."
