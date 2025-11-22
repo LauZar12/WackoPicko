@@ -2,7 +2,7 @@ name: Non-blocking security scans and Docker build
 
 on:
   push:
-    branches: [ main ]
+  pull_request:
   workflow_dispatch:
 
 jobs:
