@@ -95,7 +95,7 @@ jobs:
           echo "SCA exit code:     $SCA_EXIT_CODE"
 
           if [ "$SEMGREP_EXIT_CODE" != "0" ] || [ "$SAST_EXIT_CODE" != "0" ] || [ "$SCA_EXIT_CODE" != "0" ]; then
-            echo "❌ Vulnerabilities fonud. Docker image build denied."
+            echo "❌ Vulnerabilities found. Docker image build denied."
             exit 1
           else
             echo "✅ No vulnerabilities found by Semgrep, SAST or SCA. Proceeding with Docker image build."
