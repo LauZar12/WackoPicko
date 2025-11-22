@@ -1,15 +1,16 @@
-FROM tutum/lamp
-MAINTAINER Adam Doupe <adamdoupe@gmail.com>
+FROM php:5.6-apache
 
-RUN apt-get update && apt-get install -y libgd-dev php5-gd
-RUN rm -fr /app
-COPY website /app
-RUN chmod 777 /app/upload
+# Install PHP extensions
+RUN docker-php-ext-install mysqli
 
-COPY current.sql .
-ADD create_mysql_admin_user.sh /create_mysql_admin_user.sh
-ADD php.ini /etc/php5/apache2/php.ini
-ADD php.ini /etc/php5/cli/php.ini
-RUN sed -i 's/150/250/g' /etc/apache2/mods-available/mpm_worker.conf
-RUN sed -i 's/150/250/g' /etc/apache2/mods-available/mpm_prefork.conf
-RUN chmod 755 /*.sh
+# Enable Apache rewrite module
+RUN a2enmod rewrite
+
+# Copy project contents
+COPY . /var/www/html/
+
+# Permissions for uploads
+RUN chmod -R 777 /var/www/html/upload
+
+# Expose port
+EXPOSE 80
